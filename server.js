@@ -5,7 +5,15 @@ const connectDB = require("./config/db");
 // const morgan = require("morgan"); // Optional: for logging
 
 // Load .env variables
+// Load .env variables
 dotenv.config();
+
+// 🔒 Sanity check: require JWT_SECRET
+if (!process.env.JWT_SECRET) {
+  console.error("❌ JWT_SECRET is missing. Set it in your backend .env and in Render's Environment.");
+  process.exit(1);
+}
+
 
 // Connect to MongoDB
 connectDB();
