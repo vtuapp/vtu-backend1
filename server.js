@@ -27,7 +27,7 @@ app.get("/", (req, res) => {
 const userRoutes = require("./routes/users");
 app.use("/api/users", userRoutes);
 
-// ❗ Future error handling middleware placeholder
+// ❗ Error handling middleware placeholder
 // app.use((err, req, res, next) => {
 //   res.status(err.status || 500).json({ message: err.message || "Server Error" });
 // });
