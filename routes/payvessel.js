@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const api = require("../lib/payvessel");
+const api = require("../src/payvessel");
 const User = require("../models/user");
 const auth = require("../middleware/auth");
 
