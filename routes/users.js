@@ -171,4 +171,36 @@ router.get("/me", auth, async (req, res) => {
   }
 });
 
+/** POST /api/users/kyc
+ * auth required — body: { idType: "bvn" | "nin", idValue: "11digits" }
+ * Saves the chosen ID to the user; used by Add Money when KYC missing.
+ */
+router.post("/kyc", auth, async (req, res) => {
+  try {
+    const { idType, idValue } = req.body || {};
+    const type = String(idType || "").toLowerCase();
+    const value = String(idValue || "").replace(/\D/g, "");
+
+    if (!["bvn", "nin"].includes(type)) {
+      return res.status(400).json({ message: "idType must be 'bvn' or 'nin'." });
+    }
+    if (value.length !== 11) {
+      return res.status(400).json({ message: `${type.toUpperCase()} must be exactly 11 digits.` });
+    }
+
+    const update = type === "bvn" ? { bvn: value } : { nin: value };
+    const user = await User.findByIdAndUpdate(
+      req.user.id || req.user._id,
+      update,
+      { new: true }
+    );
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    return res.json({ message: "KYC updated", user: sanitizeUser(user) });
+  } catch (err) {
+    console.error("❌ /kyc error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;
