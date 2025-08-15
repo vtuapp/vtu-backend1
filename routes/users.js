@@ -17,7 +17,7 @@ function sanitizeUser(doc) {
 /** POST /api/users/register
  * Accepts EITHER:
  *  - New:  { name, username, email, phone, password, idType: "bvn"|"nin", idValue: "11digits" }
- *  - Legacy: { ..., bvn?, nin? }  (kept for backward compatibility)
+ *  - Legacy: { name, username, email, phone, password, bvn?, nin? }
  */
 router.post("/register", async (req, res) => {
   try {
@@ -36,6 +36,9 @@ router.post("/register", async (req, res) => {
     // Required basics
     if (!name || !username || !email || !phone || !password) {
       return res.status(400).json({ message: "All fields are required." });
+    }
+    if (String(password).length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters." });
     }
 
     // Normalize identity fields
@@ -80,7 +83,7 @@ router.post("/register", async (req, res) => {
       finalNIN = ninDigits || "";
     }
 
-    // Uniqueness checks
+    // Uniqueness checks (case-insensitive by storing lowercased)
     const existing = await User.findOne({ $or: [{ email }, { username }] });
     if (existing) {
       const msg =
@@ -98,7 +101,7 @@ router.post("/register", async (req, res) => {
       username,
       email,
       phone: phoneDigits,
-      password: hashed,            // stored hashed in your existing `password` field
+      password: hashed,            // store hash in "password"
       bvn: finalBVN || undefined,  // only one will be set
       nin: finalNIN || undefined,
     });
@@ -117,7 +120,8 @@ router.post("/register", async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Register error:", err);
-    if (err.code === 11000) {
+    if (err?.code === 11000) {
+      // Duplicate key error from unique index
       const key = Object.keys(err.keyPattern || {})[0] || "field";
       return res.status(409).json({ message: `${key} already exists.` });
     }
@@ -188,14 +192,13 @@ router.post("/kyc", auth, async (req, res) => {
       return res.status(400).json({ message: `${type.toUpperCase()} must be exactly 11 digits.` });
     }
 
-    const update = type === "bvn" ? { bvn: value } : { nin: value };
-    const user = await User.findByIdAndUpdate(
-      req.user.id || req.user._id,
-      update,
-      { new: true }
-    );
+    const user = await User.findById(req.user.id || req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    if (type === "bvn") user.bvn = value;
+    else user.nin = value;
+
+    await user.save();
     return res.json({ message: "KYC updated", user: sanitizeUser(user) });
   } catch (err) {
     console.error("❌ /kyc error:", err);
