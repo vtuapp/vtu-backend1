@@ -88,7 +88,7 @@ function handleGracefulShutdown() {
   process.on("SIGTERM", shutdown("SIGTERM"));
 }
 
-const connectDB = async () => {
+const connectdb = async () => {
   if (!MONGO_URI) {
     console.error("❌ MONGO_URI is not set in environment variables.");
     process.exit(1);
@@ -99,4 +99,4 @@ const connectDB = async () => {
   await connectWithRetry();
 };
 
-module.exports = connectDB;
+module.exports = connectdb;

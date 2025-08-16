@@ -1,14 +1,14 @@
-// server.js
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db");
 
-// Optional: const morgan = require("morgan");
+// Optional logging
+// const morgan = require("morgan");
 
 dotenv.config();
 
-// 🔒 Sanity checks
+// --- Sanity checks
 if (!process.env.JWT_SECRET) {
   console.error("❌ JWT_SECRET is missing. Set it in your backend .env and in Render's Environment.");
   process.exit(1);
@@ -18,24 +18,24 @@ if (!process.env.MONGO_URI) {
   process.exit(1);
 }
 
-// DB
+// --- DB
 connectDB();
 
 const app = express();
 app.set("trust proxy", 1); // needed on Render/behind proxies
 
-// --- CORS (open by default; restrict origin(s) if you like)
+// --- CORS
 app.use(cors({ origin: true, credentials: true }));
 
 // --- 1) Mount webhook BEFORE JSON parser (raw body needed for HMAC)
 const payvesselWebhook = require("./routes/payvessel-webhook");
-app.use("/api/payvessel", payvesselWebhook); // exposes POST /api/payvessel/webhook
+app.use("/api/payvessel", payvesselWebhook); // POST /api/payvessel/webhook
 
-// --- 2) Normal parsers for the rest
+// --- 2) Parsers
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Optional: request logging
+// Optional logging
 // app.use(morgan("dev"));
 
 // --- Health & root
@@ -45,15 +45,19 @@ app.get("/health", async (_req, res) => {
   return ready ? res.status(200).json({ ok: true }) : res.status(503).json({ ok: false });
 });
 
-// --- Routes
+// --- User Routes
 const userRoutes = require("./routes/users");
 app.use("/api/users", userRoutes);
 
-// PayVessel API routes (create/reuse virtual account, etc.)
+// --- PayVessel API routes
 const payvesselRoutes = require("./routes/payvessel");
 app.use("/api/payvessel", payvesselRoutes);
 
-// --- 404
+// --- Admin Routes (NEW)
+const adminRoutes = require("./routes/adminRoutes");
+app.use("/api/admin", adminRoutes);
+
+// --- 404 handler
 app.use((req, res, _next) => {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
 });
