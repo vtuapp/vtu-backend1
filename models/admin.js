@@ -19,4 +19,4 @@ adminSchema.methods.matchPassword = async function (entered) {
   return bcrypt.compare(entered, this.password);
 };
 
-module.exports = mongoose.model("Admin", adminSchema);
+module.exports = mongoose.model("admin", adminSchema);
