@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const adminDataPlans = require("./routes/admin-data-plans");
+const dataRoutes = require("./routes/data");
 
 // Optional logging
 // const morgan = require("morgan");
@@ -28,6 +29,8 @@ app.set("trust proxy", 1); // needed on Render/behind proxies
 // --- CORS
 app.use(cors({ origin: true, credentials: true }));
 
+app.use("/api/data", dataRoutes);
+
 // --- 1) Mount webhook BEFORE JSON parser (raw body needed for HMAC)
 const payvesselWebhook = require("./routes/payvessel-webhook");
 app.use("/api/payvessel", payvesselWebhook); // POST /api/payvessel/webhook
@@ -45,6 +48,9 @@ app.get("/health", async (_req, res) => {
   const ready = !!(require("mongoose").connection.readyState === 1);
   return ready ? res.status(200).json({ ok: true }) : res.status(503).json({ ok: false });
 });
+
+
+app.use(express.json());
 
 // --- User Routes
 const userRoutes = require("./routes/users");
