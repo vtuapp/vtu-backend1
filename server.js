@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db");
+const adminDataPlans = require("./routes/admin-data-plans");
 
 // Optional logging
 // const morgan = require("morgan");
@@ -69,6 +70,8 @@ app.use((err, _req, res, _next) => {
   const status = err.status || 500;
   res.status(status).json({ message: err.message || "Server Error" });
 });
+
+app.use("/api/admin/data-plans", adminDataPlans);
 
 // --- Start server
 const PORT = process.env.PORT || 5000;
