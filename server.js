@@ -1,22 +1,26 @@
+// server.js
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db");
-const adminDataPlans = require("./routes/admin-data-plans");
-const dataRoutes = require("./routes/data");
 
-// Optional logging
-// const morgan = require("morgan");
+// Routers
+const userRoutes = require("./routes/users");
+const payvesselRoutes = require("./routes/payvessel");
+const payvesselWebhook = require("./routes/payvessel-webhook"); // raw body needed
+const dataRoutes = require("./routes/data");
+const adminRoutes = require("./routes/adminRoutes");            // e.g. /users, /transactions, /earnings, /data-plans
+const adminDataPlans = require("./routes/admin-data-plans");    // if you keep data-plans in its own file
 
 dotenv.config();
 
 // --- Sanity checks
 if (!process.env.JWT_SECRET) {
-  console.error("❌ JWT_SECRET is missing. Set it in your backend .env and in Render's Environment.");
+  console.error("❌ JWT_SECRET is missing.");
   process.exit(1);
 }
 if (!process.env.MONGO_URI) {
-  console.error("❌ MONGO_URI is missing. Set it in your backend .env and in Render's Environment.");
+  console.error("❌ MONGO_URI is missing.");
   process.exit(1);
 }
 
@@ -24,47 +28,38 @@ if (!process.env.MONGO_URI) {
 connectDB();
 
 const app = express();
-app.set("trust proxy", 1); // needed on Render/behind proxies
+app.set("trust proxy", 1);
 
 // --- CORS
 app.use(cors({ origin: true, credentials: true }));
 
-app.use("/api/data", dataRoutes);
-
 // --- 1) Mount webhook BEFORE JSON parser (raw body needed for HMAC)
-const payvesselWebhook = require("./routes/payvessel-webhook");
-app.use("/api/payvessel", payvesselWebhook); // POST /api/payvessel/webhook
+app.use("/api/payvessel", payvesselWebhook); // e.g. POST /api/payvessel/webhook
 
-// --- 2) Parsers
+// --- 2) Parsers (AFTER webhook)
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Optional logging
-// app.use(morgan("dev"));
-
 // --- Health & root
 app.get("/", (_req, res) => res.send("VTU Backend API is running..."));
-app.get("/health", async (_req, res) => {
-  const ready = !!(require("mongoose").connection.readyState === 1);
+app.get("/health", (_req, res) => {
+  const ready = require("mongoose").connection.readyState === 1;
   return ready ? res.status(200).json({ ok: true }) : res.status(503).json({ ok: false });
 });
 
-
-app.use(express.json());
-
-// --- User Routes
-const userRoutes = require("./routes/users");
+// --- App Routers (ALL before 404)
 app.use("/api/users", userRoutes);
+app.use("/api/payvessel", payvesselRoutes);      // normal PayVessel API (non-webhook)
+app.use("/api/data", dataRoutes);
 
-// --- PayVessel API routes
-const payvesselRoutes = require("./routes/payvessel");
-app.use("/api/payvessel", payvesselRoutes);
-
-// --- Admin Routes (NEW)
-const adminRoutes = require("./routes/adminRoutes");
+// Admin base router (contains /users, /transactions, /earnings, optionally /data-plans)
 app.use("/api/admin", adminRoutes);
 
-// --- 404 handler
+// If you split data-plans into its own file, mount it here.
+// NOTE: choose ONE place for data-plans (either inside adminRoutes or this line)
+app.use("/api/admin/data-plans", adminDataPlans);
+
+// --- 404 handler (AFTER all routers)
 app.use((req, res, _next) => {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
 });
@@ -73,14 +68,9 @@ app.use((req, res, _next) => {
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
   console.error("Unhandled error:", err);
-  const status = err.status || 500;
-  res.status(status).json({ message: err.message || "Server Error" });
+  res.status(err.status || 500).json({ message: err.message || "Server Error" });
 });
-
-app.use("/api/admin/data-plans", adminDataPlans);
 
 // --- Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
